@@ -1,0 +1,47 @@
+PHISHING EMAIL ANALYZER - SAMPLE REPORT
+
+🔴 EMAIL 1 — PHISHING (Score: 30/30)
+From    : security@paypa1.com
+Subject : URGENT: Your account has been suspended! Verify immediately!
+Links   : http://paypal-secure-verify.suspicious-site.com/login
+
+Indicators Found:
+  ⚡ Suspicious sender domain: paypa1.com
+  ⚡ Urgency language detected: 'urgent'
+  ⚡ Unsecured HTTP link found (not HTTPS)
+
+🟢 EMAIL 2 — SAFE (Score: 0/30)
+From    : john.smith@gmail.com
+Subject : Meeting tomorrow at 10am
+Links   : none
+
+Indicators Found:
+  ⚡ Sender domain appears legitimate
+
+🔴 EMAIL 3 — PHISHING (Score: 30/30)
+From    : hr@company-payroll.xyz
+Subject : Immediate Action Required - Salary Update
+Links   : http://fake-payroll.xyz/verify-bank?id=12345
+
+Indicators Found:
+  ⚡ Suspicious sender domain: company-payroll.xyz
+  ⚡ Sensitive information requested: 'bank details'
+  ⚡ URL contains suspicious parameters
+
+🟢 EMAIL 4 — SAFE (Score: 0/30)
+From    : newsletter@amazon.com
+Subject : Your Amazon order has shipped!
+Links   : https://amazon.com/orders/track
+
+Indicators Found:
+  ⚡ Sender domain appears legitimate
+
+🔴 EMAIL 5 — PHISHING (Score: 30/30)
+From    : it-support@micros0ft-helpdesk.xyz
+Subject : WARNING: Your Microsoft account will be deleted in 24 hours
+Links   : http://micros0ft-verify.xyz/login
+
+Indicators Found:
+  ⚡ Domain contains number substitution (e.g. 0 for o)
+  ⚡ Sensitive information requested: 'password'
+  ⚡ Urgency language detected: 'act fast'

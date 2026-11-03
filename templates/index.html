@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SOC Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root { --bg:#0d1117; --card:#161b22; --line:#30363d; --text:#e6edf3; --muted:#8b949e;
+          --red:#ef4444; --amber:#f59e0b; --green:#22c55e; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:system-ui,sans-serif; padding:20px; }
+  header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px; }
+  h1 { font-size:20px; } h2 { font-size:14px; color:var(--muted); margin-bottom:10px; font-weight:600; }
+  .note { font-size:12px; color:var(--muted); }
+  .warn { background:#3b2a05; border:1px solid var(--amber); color:var(--amber); padding:8px 12px; border-radius:8px; font-size:13px; margin-bottom:14px; display:none; }
+  .grid { display:grid; gap:14px; margin-bottom:14px; }
+  .kpis { grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); }
+  .two { grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; }
+  .kpi b { display:block; font-size:28px; margin-top:4px; }
+  .chart { height:240px; position:relative; }
+  .alert { display:flex; gap:10px; padding:8px 0; border-bottom:1px solid var(--line); font-size:13px; align-items:center; }
+  .alert:last-child { border:0; }
+  .tag { font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; color:#000; white-space:nowrap; }
+  .MALICIOUS,.PHISHING { background:var(--red); } .SUSPICIOUS { background:var(--amber); } .SAFE,.NORMAL { background:var(--green); }
+  .sev { color:var(--muted); min-width:48px; } .ip { font-family:monospace; color:var(--muted); }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  td,th { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+</style>
+</head>
+<body>
+<header>
+  <h1>&#128737; SOC Dashboard</h1>
+  <span class="note">Last updated: <span id="updated">-</span> &middot; refreshes every 10s</span>
+</header>
+<div class="warn" id="warn"></div>
+
+<div class="grid kpis">
+  <div class="card kpi"><h2>Total events</h2><b id="k-events">0</b></div>
+  <div class="card kpi"><h2>Malicious</h2><b id="k-mal" style="color:var(--red)">0</b></div>
+  <div class="card kpi"><h2>Suspicious</h2><b id="k-sus" style="color:var(--amber)">0</b></div>
+  <div class="card kpi"><h2>Phishing emails</h2><b id="k-phish" style="color:var(--red)">0</b></div>
+</div>
+
+<div class="grid two">
+  <div class="card"><h2>Event breakdown</h2><div class="chart"><canvas id="pie"></canvas></div></div>
+  <div class="card"><h2>Top threat IPs (max severity)</h2><div class="chart"><canvas id="bar"></canvas></div></div>
+</div>
+
+<div class="grid two">
+  <div class="card"><h2>Alert feed (highest severity first)</h2><div id="feed"></div></div>
+  <div class="card"><h2>Phishing email analysis</h2>
+    <table><thead><tr><th>Email</th><th>Result</th><th>Why</th></tr></thead><tbody id="mails"></tbody></table>
+  </div>
+</div>
+
+<script>
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let pie, bar;
+
+function draw(d) {
+  const t = d.totals;
+  document.getElementById('k-events').textContent = t.events;
+  document.getElementById('k-mal').textContent = t.malicious;
+  document.getElementById('k-sus').textContent = t.suspicious;
+  document.getElementById('k-phish').textContent = t.phishing;
+  document.getElementById('updated').textContent = new Date().toLocaleTimeString();
+
+  const warn = document.getElementById('warn'), msgs = [];
+  if (d.using_sample) msgs.push('Showing sample data. Run projects 1 and 2 (or fix the paths in app.py) to see your real reports.');
+  if (d.missing.length) msgs.push('Missing: ' + d.missing.join(', '));
+  warn.style.display = msgs.length ? 'block' : 'none';
+  warn.textContent = msgs.join(' ');
+
+  const pieData = [t.malicious, t.suspicious, t.normal];
+  const ipLabels = d.top_ips.map(i => i.ip), ipVals = d.top_ips.map(i => i.max_severity);
+  if (!pie) {
+    const opts = { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ color:'#e6edf3' } } } };
+    pie = new Chart('pie', { type:'doughnut', options:opts,
+      data:{ labels:['Malicious','Suspicious','Normal'], datasets:[{ data:pieData, backgroundColor:['#ef4444','#f59e0b','#22c55e'], borderWidth:0 }] } });
+    bar = new Chart('bar', { type:'bar',
+      options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y', plugins:{ legend:{ display:false } },
+        scales:{ x:{ max:10, ticks:{ color:'#8b949e' } }, y:{ ticks:{ color:'#e6edf3' } } } },
+      data:{ labels:ipLabels, datasets:[{ data:ipVals, backgroundColor:'#ef4444' }] } });
+  } else {
+    pie.data.datasets[0].data = pieData; pie.update();
+    bar.data.labels = ipLabels; bar.data.datasets[0].data = ipVals; bar.update();
+  }
+
+  document.getElementById('feed').innerHTML = d.alerts.map(a =>
+    `<div class="alert"><span class="tag ${esc(a.cls)}">${esc(a.cls)}</span>
+     <span class="sev">${a.severity}/10</span><span class="ip">${esc(a.ip)}</span>
+     <span>${esc(a.msg)}</span></div>`).join('') || '<p class="note">No alerts.</p>';
+
+  document.getElementById('mails').innerHTML = d.emails.map(m =>
+    `<tr><td>${esc(m.id)}<br><span class="note">${esc(m.from)}</span></td>
+     <td><span class="tag ${esc(m.cls)}">${esc(m.cls)}</span><br><span class="note">${m.score}/30</span></td>
+     <td>${m.flags.slice(0,3).map(esc).join('<br>') || '-'}</td></tr>`).join('');
+}
+
+const load = () => fetch('/api/data').then(r => r.json()).then(draw);
+load(); setInterval(load, 10000);
+</script>
+</body>
+</html>
